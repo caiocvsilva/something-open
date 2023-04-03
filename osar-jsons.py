@@ -3,6 +3,9 @@ import json
 import sys
 import pandas as pd
 import random
+import nltk
+
+nltk.download('averaged_perceptron_tagger')   # Downloading the required NLTK model
 
 
 
@@ -53,86 +56,45 @@ def choose_placeholders(pool):
     num_placeholders = len(placeholders)
     num_templates = len(templates)
 
+    train_placeholders = placeholders
+    random_indexes_past=[]
+
     # list of articles in english language
 
 
 
     print(num_placeholders)
     print(num_templates)
+    # print("Train Placeholders: ", train_placeholders)
 
     # generate num_placeholders/10 random numbers in the range 0 to num_placeholders
-    while(core_check):
-        core_check=False
-        place_dict=[]
-        placeholders_index = [random.randint(0, num_placeholders-1) for i in range(int(num_placeholders*percent_placeholder))]
-        for i in range(int(num_placeholders*percent_placeholder)):
-            for j, val in enumerate(placeholders[placeholders_index[i]]):
+    for i in range(int(num_placeholders*percent_placeholder)):
+        core_check = True
+        while(core_check):
+            core_check=False
+            place_dict=[]
+            placeholders_index = random.randint(0, num_placeholders-1)
+            if placeholders_index not in random_indexes_past:
+                random_indexes_past.append(placeholders_index)
+            else:
+                core_check = True
+                continue
+            for j, val in enumerate(placeholders[placeholders_index]):
+                train_placeholders.remove(placeholders[placeholders_index])
+
                 core_check = False
-                if " " in val:
-                    exploded = val.split(" ")
-                    for e, vale in enumerate(exploded):
-                        if vale != 'a' and vale != 'an':
-                            if (vale not in place_dict):
-                                place_dict.append(vale)
-                            else:
-                                core_check = True
-                                break
-                if core_check:
-                    break
+                # Extracting all nouns from first_list
+                nouns_to_check = [word[0] for word in nltk.pos_tag([word for sublist in val for word in sublist]) if word[1].startswith('N')]
+                if not any(word in sublist for sublist in train_placeholders for word in nouns_to_check):
+                    place_dict.append(val)
                 else:
-                    if (val not in place_dict):
-                        place_dict.append(val)
-                    else:
-                        core_check = True
-            if core_check:
-                break
+                    core_check = True
+                    break
 
     for i in range(int(num_placeholders*percent_placeholder)):
-        chosen_placeholder.append(placeholders[placeholders_index[i]])
+        chosen_placeholder.append(placeholders[random_indexes_past[i]])
 
     print("Placeholders chosen: ", chosen_placeholder)
-
-    core_check = True
-    while(core_check):
-        core_check=False
-        place_dict=[]
-        template_index = [random.randint(0, num_templates-1) for i in range(int(num_templates*percent_template))]
-        for i in range(int(num_templates*percent_template)):
-            for j, val in enumerate(templates[template_index[i]]):
-                core_check = False
-                if "[something] " in val:
-                    exploded = val.split("[something]")
-                    for e, vale in enumerate(exploded):
-                        if vale != 'a' and vale != 'an' and vale != 'the' and vale != ',' and vale !='and':
-                            if (vale not in place_dict):
-                                place_dict.append(vale)
-                            else:
-                                core_check = True
-                                break
-                if core_check:
-                    break
-                else:
-                    if (val not in place_dict):
-                        place_dict.append(val)
-                    else:
-                        core_check = True
-            if core_check:
-                break
-
-    for i in range(int(num_templates*percent_template)):
-        chosen_template.append(templates[template_index[i]])
-
-    print("template chosen: ", chosen_template)
-
-    
-    
-    # template_index = [random.randint(0, num_templates) for i in range(num_templates/10)]
-
-
-    # placeholders_to_choose = set(random.sample((placeholders), int(num_placeholders * 0.1)))
-    # templates_to_choose = set(random.sample(sorted(templates), int(num_templates * 0.1)))
-
-    # print("Placeholders to choose: ", placeholders_to_choose)
 
 if __name__ == "__main__":
     pool = read_jsons()
