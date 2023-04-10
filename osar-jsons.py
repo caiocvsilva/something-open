@@ -37,7 +37,25 @@ def read_jsons():
 
 # Get all items from pool of jsons in the 'nouns' index
 def get_nouns(pool):
-    return [list(x) for x in set(tuple(x) for x in pool['placeholders'])]
+    # return [list(x) for x in set(tuple(x) for x in pool['placeholders'])]
+    all_nouns = []
+    placeholders = [list(x) for x in set(tuple(x) for x in pool['placeholders'])]
+    # print("placeholders: ", placeholders)
+    # loop each item of each list in placeholders
+    for i, pair in enumerate(placeholders):
+        for j, sentence in enumerate(pair):
+            tokens = nltk.word_tokenize(sentence)
+
+            # Tag the tokens with their part of speech
+            tagged_tokens = nltk.pos_tag(tokens)
+
+            # Extract the nouns from the tagged tokens
+            nouns = [word.lower() for word, pos in tagged_tokens if pos.startswith('N')]
+
+            # append all the nouns
+            all_nouns.append(nouns)
+
+    return all_nouns
 
 # Get all items from pool of jsons in the 'template' index
 def get_verbs(pool):
@@ -80,28 +98,26 @@ def choose_nouns(pool):
         while(core_check):
             # set core_check flag to False so that it can be checked inside inner loop
             core_check=False
-            place_dict=[]
+            # place_dict=[]
             nouns_index = random.randint(0, num_nouns-1)
             # Check whether the randomly selected noun already exists in past selections.
             if nouns_index not in random_indexes_past:
                 random_indexes_past.append(nouns_index)
-                chosen_noun.append(nouns[nouns_index])
+                # chosen_noun.append(nouns[nouns_index])
+                # Extract all nouns from selected noun and check whether they are present in any other sublist of train_nouns
+                train_nouns.remove(nouns[nouns_index])
+                num_nouns = len(train_nouns)
+                for j, val in enumerate(nouns[nouns_index]):
+                    if val not in train_nouns:
+                        if (val not in chosen_noun):
+                            chosen_noun.append(val)
+                    else:
+                        core_check = True
+                        break
             else:
                 core_check = True
                 continue
-            # Extract all nouns from selected noun and check whether they are present in any other sublist of train_nouns
-            for j, val in enumerate(nouns[nouns_index]):
-                train_nouns.remove(nouns[nouns_index])
-                num_nouns = len(train_nouns)
-
-                core_check = False
-                # Extracting all nouns from first_list
-                nouns_to_check = [word[0] for word in nltk.pos_tag([word for sublist in val for word in sublist]) if word[1].startswith('N')]
-                if not any(word in sublist for sublist in train_nouns for word in nouns_to_check):
-                    place_dict.append(val)
-                else:
-                    core_check = True
-                    break
+            
 
     print("nouns chosen: ", chosen_noun)
     # save all the nouns that were not chosen to a file called known_nouns.txt
@@ -145,8 +161,9 @@ def choose_verbs(pool):
                     verbs_to_check = [word[0] for word in nltk.pos_tag([word for sublist in val for word in sublist]) if word[1].startswith('V')]
                     # Check whether the selected verb exists in chosen_verbs list or not.
                     # Also, check whether any of the verbs_to_check exist in train_verbs or not.
-                    if not any(word in sublist for sublist in train_verbs for word in val) and (val not in chosen_verbs):
-                        chosen_verbs.append(val)
+                    if not any(word in sublist for sublist in train_verbs for word in val):
+                        if(val not in chosen_verbs):
+                            chosen_verbs.append(val)
                     else:
                         core_check = True
                         break
