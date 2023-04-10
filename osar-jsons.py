@@ -4,6 +4,8 @@ import sys
 import pandas as pd
 import random
 import nltk
+from sklearn.model_selection import train_test_split
+
 
 nltk.download('averaged_perceptron_tagger')   # Downloading the required NLTK model
 
@@ -102,6 +104,11 @@ def choose_nouns(pool):
                     break
 
     print("nouns chosen: ", chosen_noun)
+    # save all the nouns that were not chosen to a file called known_nouns.txt
+    with open('known_nouns.txt', 'w') as f:
+        for item in train_nouns:
+            f.write("%s\n" % item)
+    return chosen_noun
 
 # Choose 10% of the verbs at random, similar to what was done for nouns
 def choose_verbs(pool):
@@ -148,9 +155,29 @@ def choose_verbs(pool):
                 continue
 
     print("verbs chosen: ", chosen_verbs)
+    return chosen_verbs
+
+# function that will receive the pool and the unknown nouns. From this it will generate two json, in the same format as the original json, in the train json it will contain 70% of all the sentences in which any item of placeholders, converted to lowercase, is not equal to any item in the unknown nouns, and in the test json it will contain the remaining 30% of the sentences in which any item of placeholders, converted to lowercase, is not equal to any item in the unknown nouns plus all the sentences in which any item of placeholders, converted to lowercase, is equal to any item in the unknown nouns.
+def unknown_noun_known_verb(pool, unknown_nouns):
+    # Create two dataframes in the sstructure as the pool to store the known and unknown labels
+    known_labels = pool[pool['placeholders'].apply(lambda x: any(any(word in x for word in subarray) for subarray in unknown_nouns))]
+    unknown_labels = pool[~pool['placeholders'].apply(lambda x: any(any(word in x for word in subarray) for subarray in unknown_nouns))]
+
+    # train dataframe is a random 70% of the known_labels dataframe
+    unkv_train = known_labels.sample(frac=0.7)
+    # test dataframe is the known_labels dataframe rows not in train dataframe plus all the rows in the unknown_labels dataframe
+    unkv_test = pd.concat([known_labels[~known_labels.isin(unkv_train)].dropna(), unknown_labels], ignore_index=True)
+    # unkv_test = unknown_labels
+        
+    # Save the unkv_train and unkv_test dataframes to json files
+    unkv_train.to_json('unkv_train.json', orient='records', lines=True)
+    unkv_test.to_json('unkv_test.json', orient='records', lines=True)
 
 
 if __name__ == "__main__":
     pool = read_jsons()
-    choose_nouns(pool)
-    choose_verbs(pool)
+    unknwon_nouns = choose_nouns(pool)
+    unknown_verbs = choose_verbs(pool)
+    unknown_noun_known_verb(pool, unknwon_nouns)
+    # unknown_verb_known_noun(pool, unknown_verbs)
+    
