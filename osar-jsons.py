@@ -4,17 +4,16 @@ import sys
 import pandas as pd
 import random
 import nltk
-from sklearn.model_selection import train_test_split
+from itertools import chain
+import inflect
 
 
 nltk.download('averaged_perceptron_tagger')   # Downloading the required NLTK model
 nltk.download('punkt')
+nltk.download('wordnet')
+p = inflect.engine()
 
 
-
-
-# Open two jsons given by the user as commmand line arguments
-# combine the data from both jsons
 def read_jsons():
 
     pool = []
@@ -44,7 +43,20 @@ def extract_nouns(row):
     for text in text_array:
         tokens = nltk.word_tokenize(text)
         tagged = nltk.pos_tag(tokens)
-        nouns.extend([word.lower() for word, pos in tagged if (pos == 'NN' or pos == 'NNS' or pos == 'NNP' or pos == 'NNPS')])
+        # nouns.extend([word.lower() for word, pos in tagged if (pos == 'NN' or pos == 'NNS' or pos == 'NNP' or pos == 'NNPS')])
+        
+        # iterate through the tagged words list and append singular nouns to the nouns list
+        for word, pos in tagged:
+            if (pos == 'NN' or pos == 'NNS' or pos == 'NNP' or pos == 'NNPS'):
+                # lemmatize the word to its singular form
+                word = word.lower()
+                word_s = p.singular_noun(word)
+                # if the word is not changed into a singular form, keep it as it is
+                if not word_s:
+                    nouns.append(word)
+                else:
+                    nouns.append(word_s)
+        
     return nouns
 
 
@@ -63,7 +75,6 @@ def extract_verbs(row):
 def add_nouns_verb_column(pool):
     pool['nouns'] = pool.apply(extract_nouns, axis=1)
     pool['verbs'] = pool.apply(extract_verbs, axis=1)
-
 
 # Function that chooses x random rows from the dataframe pool
 def choose_random_nouns(pool, x):
@@ -94,22 +105,18 @@ def choose_random_verbs(pool, x):
         all_verbs.append(verbs)
     return all_verbs
 
-# Function that creates the train and test jsons for
-# Unknown nouns and known verbs
-def unknown_noun_known_verb(pool, unknown_nouns):
-    known_labels = pool[~pool['nouns'].apply(lambda x: bool(set(x) & set(unknown_nouns)))]
-    unknown_labels = pool[pool['nouns'].apply(lambda x: bool(set(x) & set(unknown_nouns)))]
+def create_df_known_labels_unkv(pool, unknown_nouns):
 
-    # # Find all unique verbs in known_labels
-    # known_verbs = set(known_labels['verbs'].sum())
+    # flatten unknown_nouns list
+    flat_unknown_nouns = list(chain.from_iterable(unknown_nouns))
     
-    # # Iterate over each row of unknown_labels
-    # for i, row in unknown_labels.iterrows():
-    #     # Check if any verb in current row is not in known_verbs
-    #     if any(v not in known_verbs for v in row['verbs']):
-    #         # If found, delete the current row from unknown_labels
-    #         unknown_labels.drop(i, inplace=True)
-    
+    # filter pool dataframe
+    known_labels = pool[~pool['nouns'].apply(lambda x: any(item for item in x if item in flat_unknown_nouns))]
+    unknown_labels = pool[pool['nouns'].apply(lambda x: any(item for item in x if item in flat_unknown_nouns))]
+
+    return known_labels, unknown_labels
+
+def unknown_noun_known_verb(known_labels, unknown_labels):
     # Find all unique verbs in known_labels and convert to set
     known_verbs = set(known_labels['verbs'].explode().unique())
     
@@ -121,17 +128,99 @@ def unknown_noun_known_verb(pool, unknown_nouns):
     
     # Split the known_labels dataframe into training and testing sets
     train_df = known_labels.sample(frac=0.7, random_state=42)
+    print('[unkv] size of train_df: ', len(train_df))
     test_df = known_labels.drop(train_df.index)
+    print('[unkv] k - size of test_df: ', len(test_df))
     
     # Append the unknown_labels dataframe to the test set
-    test_df = test_df.append(unknown_labels, ignore_index=True)
+    # test_df = test_df.append(unknown_labels, ignore_index=True)
+    test_df = pd.concat([test_df, unknown_labels], ignore_index=True)
+    print('[unkv] k+u - size of test_df: ', len(test_df))
     
     # Save the train and test dataframes to JSON files
     train_df.to_json('unkv_train.json', orient='records', lines=True)
     test_df.to_json('unkv_test.json', orient='records', lines=True)
+
+def create_df_known_labels_knuv(pool, unknown_verbs):
+
+    # flatten unknown_verbs list
+    flat_unknown_verbs = list(chain.from_iterable(unknown_verbs))
     
+    # filter pool dataframe
+    known_labels = pool[~pool['verbs'].apply(lambda x: any(item for item in x if item in flat_unknown_verbs))]
+    unknown_labels = pool[pool['verbs'].apply(lambda x: any(item for item in x if item in flat_unknown_verbs))]
 
+    return known_labels, unknown_labels
 
+def known_noun_unknown_verb(known_labels, unknown_labels):
+    # Find all unique nouns in known_labels and convert to set
+    known_nouns = set(known_labels['nouns'].explode().unique())
+    
+    # Create a boolean mask of unknown_labels rows where any nouns is not in known_nouns
+    mask = ~(unknown_labels['nouns'].explode().isin(known_nouns)).groupby(level=0).any()
+    
+    # Filter out the rows where the mask is True
+    unknown_labels = unknown_labels.loc[~mask]
+    
+    # Split the known_labels dataframe into training and testing sets
+    train_df = known_labels.sample(frac=0.7, random_state=42)
+    print('[knuv] size of train_df: ', len(train_df))
+    test_df = known_labels.drop(train_df.index)
+    print('[knuv] k - size of test_df: ', len(test_df))
+    
+    # Append the unknown_labels dataframe to the test set
+    test_df = pd.concat([test_df, unknown_labels], ignore_index=True)
+    print('[knuv] k+u - size of test_df: ', len(test_df))
+    
+    # Save the train and test dataframes to JSON files
+    train_df.to_json('knuv_train.json', orient='records', lines=True)
+    test_df.to_json('knuv_test.json', orient='records', lines=True)
+
+def create_df_known_labels_unuv(pool, unknown_nouns, unknown_verbs):
+
+    # flatten unknown_nouns and unknown_verbs list
+    flat_unknown_nouns = list(chain.from_iterable(unknown_nouns))
+    flat_unknown_verbs = list(chain.from_iterable(unknown_verbs))
+    
+    
+    # filter pool dataframe
+    known_labels = pool[~pool['nouns'].apply(lambda x: any(item for item in x if item in flat_unknown_nouns))]
+    known_labels = known_labels[~known_labels['verbs'].apply(lambda x: any(item for item in x if item in flat_unknown_verbs))]
+    unknown_labels = pool[pool['nouns'].apply(lambda x: any(item for item in x if item in flat_unknown_nouns))]
+    unknown_labels = unknown_labels[unknown_labels['verbs'].apply(lambda x: any(item for item in x if item in flat_unknown_verbs))]
+
+    return known_labels, unknown_labels
+
+def unknown_noun_unknown_verb(known_labels, unknown_labels):
+    # Find all unique nouns in known_labels and convert to set
+    known_nouns = set(known_labels['nouns'].explode().unique())
+    known_verbs = set(known_labels['verbs'].explode().unique())
+    
+    # Create a boolean mask of unknown_labels rows where any nouns is not in known_nouns
+    mask = ~(unknown_labels['nouns'].explode().isin(known_nouns)).groupby(level=0).any()
+    
+    # Filter out the rows where the mask is True
+    unknown_labels = unknown_labels.loc[~mask]
+
+    # Create a boolean mask of unknown_labels rows where any verb is not in known_verbs
+    mask = ~(unknown_labels['verbs'].explode().isin(known_verbs)).groupby(level=0).any()
+
+    # Filter out the rows where the mask is True
+    unknown_labels = unknown_labels.loc[~mask]
+    
+    # Split the known_labels dataframe into training and testing sets
+    train_df = known_labels.sample(frac=0.7, random_state=42)
+    print('[unuv] size of train_df: ', len(train_df))
+    test_df = known_labels.drop(train_df.index)
+    print('[unuv] k - size of test_df: ', len(test_df))
+    
+    # Append the unknown_labels dataframe to the test set
+    test_df = pd.concat([test_df, unknown_labels], ignore_index=True)
+    print('[unuv] k+u - size of test_df: ', len(test_df))
+    
+    # Save the train and test dataframes to JSON files
+    train_df.to_json('unuv_train.json', orient='records', lines=True)
+    test_df.to_json('unuv_test.json', orient='records', lines=True)
     
 
 
@@ -143,14 +232,12 @@ if __name__ == "__main__":
     print(unknown_nouns)
     unknown_verbs = choose_random_verbs(pool,10)
     print(unknown_verbs)
-    unknown_noun_known_verb(pool, unknown_nouns)
-
-
-    # add_verbs_column(pool)
-    # print(pool)
-
-    # unknwon_nouns = choose_nouns(pool)
-    # unknown_verbs = choose_verbs(pool)
-    # unknown_noun_known_verb(pool, unknwon_nouns)
-    # # unknown_verb_known_noun(pool, unknown_verbs)
-    
+    # Unknown Nouns + Known Verbs
+    known_labels, unknown_labels = create_df_known_labels_unkv(pool, unknown_nouns)
+    unknown_noun_known_verb(known_labels, unknown_labels)
+    # Known Nouns + Unknown Verbs
+    known_labels, unknown_labels = create_df_known_labels_knuv(pool, unknown_verbs)
+    known_noun_unknown_verb(known_labels, unknown_labels)
+    # Unknown Nouns + Unknown Verbs
+    known_labels, unknown_labels = create_df_known_labels_unuv(pool, unknown_nouns, unknown_verbs)
+    unknown_noun_unknown_verb(known_labels, unknown_labels)
