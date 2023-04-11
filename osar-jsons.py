@@ -8,6 +8,7 @@ from sklearn.model_selection import train_test_split
 
 
 nltk.download('averaged_perceptron_tagger')   # Downloading the required NLTK model
+nltk.download('punkt')
 
 
 
@@ -34,167 +35,122 @@ def read_jsons():
 
     return pd.concat(pool, ignore_index=True)
 
+# A function that adds a new column to the dataframe pool called nouns
+# for each existing row, the function will extract the nouns in the column placeholders
+# and add to the new column
+def extract_nouns(row):
+    text_array = row['placeholders'] #Replace 'placeholders' with the actual name of the column containing your text data
+    nouns = []
+    for text in text_array:
+        tokens = nltk.word_tokenize(text)
+        tagged = nltk.pos_tag(tokens)
+        nouns.extend([word.lower() for word, pos in tagged if (pos == 'NN' or pos == 'NNS' or pos == 'NNP' or pos == 'NNPS')])
+    return nouns
 
-# Get all items from pool of jsons in the 'nouns' index
-def get_nouns(pool):
-    # return [list(x) for x in set(tuple(x) for x in pool['placeholders'])]
+
+# A function that adds a new column to the dataframe pool called verbs
+# for each existing row, the function will extract the verbs in the column template
+# and add to the new column
+def extract_verbs(row):
+    text= row['template'] #Replace 'template' with the actual name of the column containing your text data
+    verbs = []
+    
+    tokens = nltk.word_tokenize(text)
+    tagged = nltk.pos_tag(tokens)
+    verbs = [word.lower() for word, pos in tagged if (pos == 'VB' or pos == 'VBD' or pos == 'VBG' or pos == 'VBN' or pos == 'VBP' or pos == 'VBZ')]
+    return verbs
+
+def add_nouns_verb_column(pool):
+    pool['nouns'] = pool.apply(extract_nouns, axis=1)
+    pool['verbs'] = pool.apply(extract_verbs, axis=1)
+
+
+# Function that chooses x random rows from the dataframe pool
+def choose_random_nouns(pool, x):
     all_nouns = []
-    placeholders = [list(x) for x in set(tuple(x) for x in pool['placeholders'])]
-    # print("placeholders: ", placeholders)
-    # loop each item of each list in placeholders
-    for i, pair in enumerate(placeholders):
-        for j, sentence in enumerate(pair):
-            tokens = nltk.word_tokenize(sentence)
-
-            # Tag the tokens with their part of speech
-            tagged_tokens = nltk.pos_tag(tokens)
-
-            # Extract the nouns from the tagged tokens
-            nouns = [word.lower() for word, pos in tagged_tokens if pos.startswith('N')]
-
-            # append all the nouns
-            all_nouns.append(nouns)
-
+    past_index = []
+    #  loop x times chosing one row at a time
+    for i in range(x):
+        while True:
+            random_index = random.randint(0, len(pool)-1)
+            if random_index not in past_index:
+                past_index.append(random_index)
+                break
+        nouns = pool['nouns'][random_index]
+        all_nouns.append(nouns)
     return all_nouns
 
-# Get all items from pool of jsons in the 'template' index
-def get_verbs(pool):
-    templates = pool['template'].unique()
+def choose_random_verbs(pool, x):
     all_verbs = []
-
-    for sentence in templates:
-
-        tokens = nltk.word_tokenize(sentence)
-
-        # Tag the tokens with their part of speech
-        tagged_tokens = nltk.pos_tag(tokens)
-
-        # Extract the verbs from the tagged tokens
-        verbs = [word.lower() for word, pos in tagged_tokens if pos.startswith('V')]
-
-        # append all the verbs
+    past_index = []
+    #  loop x times chosing one row at a time
+    for i in range(x):
+        while True:
+            random_index = random.randint(0, len(pool)-1)
+            if random_index not in past_index:
+                past_index.append(random_index)
+                break
+        verbs = pool['verbs'][random_index]
         all_verbs.append(verbs)
     return all_verbs
 
-# Choose 10% of the nouns at random, but no two items can share a word
-def choose_nouns(pool):
-    # Set initial variables for tracking and output
-    core_check = True
-    chosen_noun=list()
-    percent_placeholder = 0.0001;
-    
-    # Call get_nouns function to retrieve all nouns from the pool of data
-    nouns = get_nouns(pool)
-    num_nouns = len(nouns)
-
-    # Create train_nouns list with all initial nouns from noun list.
-    train_nouns = nouns
-    random_indexes_past=[]
-
-    # Generate num_nouns/10 random numbers in the range 0 to num_nouns
-    # Random number is used to select a noun from the nouns list which will be added to chosen_noun list
-    for i in range(int(num_nouns*percent_placeholder)):
-        core_check = True
-        while(core_check):
-            # set core_check flag to False so that it can be checked inside inner loop
-            core_check=False
-            # place_dict=[]
-            nouns_index = random.randint(0, num_nouns-1)
-            # Check whether the randomly selected noun already exists in past selections.
-            if nouns_index not in random_indexes_past:
-                random_indexes_past.append(nouns_index)
-                # chosen_noun.append(nouns[nouns_index])
-                # Extract all nouns from selected noun and check whether they are present in any other sublist of train_nouns
-                train_nouns.remove(nouns[nouns_index])
-                num_nouns = len(train_nouns)
-                for j, val in enumerate(nouns[nouns_index]):
-                    if val not in train_nouns:
-                        if (val not in chosen_noun):
-                            chosen_noun.append(val)
-                    else:
-                        core_check = True
-                        break
-            else:
-                core_check = True
-                continue
-            
-
-    print("nouns chosen: ", chosen_noun)
-    # save all the nouns that were not chosen to a file called known_nouns.txt
-    with open('known_nouns.txt', 'w') as f:
-        for item in train_nouns:
-            f.write("%s\n" % item)
-    return chosen_noun
-
-# Choose 10% of the verbs at random, similar to what was done for nouns
-def choose_verbs(pool):
-    # Set initial variables for tracking and output
-    core_check = True
-    chosen_verbs=list()
-    percent_verbs = 0.1; 
-    
-    # Call get_verbs function to retrieve all verbs from the pool of data
-    verbs = get_verbs(pool)
-    num_verbs = len(verbs)
-
-    # Create train_verbs list with all initial verbs from verb list.
-    train_verbs = verbs
-    random_indexes_past=[]
-
-    # Generate num_verbs/10 random numbers in the range 0 to num_verbs
-    # Random number is used to select a verb from the verbs list which will be added to chosen_verbs list
-    for i in range(int(num_verbs*percent_verbs)):
-        core_check = True
-        while(core_check):
-            # set core_check flag to False so that it can be checked inside inner loop
-            core_check=False
-            verbs_index = random.randint(0, num_verbs-1)
-            # Check whether the randomly selected verb already exists in past selections.
-            if verbs_index not in random_indexes_past:
-                random_indexes_past.append(verbs_index)
-                for j, val in enumerate(verbs[verbs_index]):
-                    train_verbs.remove(verbs[verbs_index])
-                    num_verbs = len(train_verbs)
-
-                    core_check = False
-                    # Extracting all verbs from first_list
-                    verbs_to_check = [word[0] for word in nltk.pos_tag([word for sublist in val for word in sublist]) if word[1].startswith('V')]
-                    # Check whether the selected verb exists in chosen_verbs list or not.
-                    # Also, check whether any of the verbs_to_check exist in train_verbs or not.
-                    if not any(word in sublist for sublist in train_verbs for word in val):
-                        if(val not in chosen_verbs):
-                            chosen_verbs.append(val)
-                    else:
-                        core_check = True
-                        break
-            else:
-                core_check = True
-                continue
-
-    print("verbs chosen: ", chosen_verbs)
-    return chosen_verbs
-
-# function that will receive the pool and the unknown nouns. From this it will generate two json, in the same format as the original json, in the train json it will contain 70% of all the sentences in which any item of placeholders, converted to lowercase, is not equal to any item in the unknown nouns, and in the test json it will contain the remaining 30% of the sentences in which any item of placeholders, converted to lowercase, is not equal to any item in the unknown nouns plus all the sentences in which any item of placeholders, converted to lowercase, is equal to any item in the unknown nouns.
+# Function that creates the train and test jsons for
+# Unknown nouns and known verbs
 def unknown_noun_known_verb(pool, unknown_nouns):
-    # Create two dataframes in the sstructure as the pool to store the known and unknown labels
-    known_labels = pool[pool['placeholders'].apply(lambda x: any(any(word in x for word in subarray) for subarray in unknown_nouns))]
-    unknown_labels = pool[~pool['placeholders'].apply(lambda x: any(any(word in x for word in subarray) for subarray in unknown_nouns))]
+    known_labels = pool[~pool['nouns'].apply(lambda x: bool(set(x) & set(unknown_nouns)))]
+    unknown_labels = pool[pool['nouns'].apply(lambda x: bool(set(x) & set(unknown_nouns)))]
 
-    # train dataframe is a random 70% of the known_labels dataframe
-    unkv_train = known_labels.sample(frac=0.7)
-    # test dataframe is the known_labels dataframe rows not in train dataframe plus all the rows in the unknown_labels dataframe
-    unkv_test = pd.concat([known_labels[~known_labels.isin(unkv_train)].dropna(), unknown_labels], ignore_index=True)
-    # unkv_test = unknown_labels
-        
-    # Save the unkv_train and unkv_test dataframes to json files
-    unkv_train.to_json('unkv_train.json', orient='records', lines=True)
-    unkv_test.to_json('unkv_test.json', orient='records', lines=True)
+    # # Find all unique verbs in known_labels
+    # known_verbs = set(known_labels['verbs'].sum())
+    
+    # # Iterate over each row of unknown_labels
+    # for i, row in unknown_labels.iterrows():
+    #     # Check if any verb in current row is not in known_verbs
+    #     if any(v not in known_verbs for v in row['verbs']):
+    #         # If found, delete the current row from unknown_labels
+    #         unknown_labels.drop(i, inplace=True)
+    
+    # Find all unique verbs in known_labels and convert to set
+    known_verbs = set(known_labels['verbs'].explode().unique())
+    
+    # Create a boolean mask of unknown_labels rows where any verb is not in known_verbs
+    mask = ~(unknown_labels['verbs'].explode().isin(known_verbs)).groupby(level=0).any()
+    
+    # Filter out the rows where the mask is True
+    unknown_labels = unknown_labels.loc[~mask]
+    
+    # Split the known_labels dataframe into training and testing sets
+    train_df = known_labels.sample(frac=0.7, random_state=42)
+    test_df = known_labels.drop(train_df.index)
+    
+    # Append the unknown_labels dataframe to the test set
+    test_df = test_df.append(unknown_labels, ignore_index=True)
+    
+    # Save the train and test dataframes to JSON files
+    train_df.to_json('unkv_train.json', orient='records', lines=True)
+    test_df.to_json('unkv_test.json', orient='records', lines=True)
+    
+
+
+    
 
 
 if __name__ == "__main__":
     pool = read_jsons()
-    unknwon_nouns = choose_nouns(pool)
-    unknown_verbs = choose_verbs(pool)
-    unknown_noun_known_verb(pool, unknwon_nouns)
-    # unknown_verb_known_noun(pool, unknown_verbs)
+    add_nouns_verb_column(pool)
+    print(pool)
+    unknown_nouns = choose_random_nouns(pool,10)
+    print(unknown_nouns)
+    unknown_verbs = choose_random_verbs(pool,10)
+    print(unknown_verbs)
+    unknown_noun_known_verb(pool, unknown_nouns)
+
+
+    # add_verbs_column(pool)
+    # print(pool)
+
+    # unknwon_nouns = choose_nouns(pool)
+    # unknown_verbs = choose_verbs(pool)
+    # unknown_noun_known_verb(pool, unknwon_nouns)
+    # # unknown_verb_known_noun(pool, unknown_verbs)
     
