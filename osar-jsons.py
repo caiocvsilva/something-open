@@ -34,6 +34,14 @@ def read_jsons():
 
     return pd.concat(pool, ignore_index=True)
 
+
+def unique_templates(pool):
+    """
+    Returns a list of unique strings in the 'template' column of a Pandas DataFrame.
+    """
+    unique = pool['template'].unique()
+    return list(unique)
+
 # A function that adds a new column to the dataframe pool called nouns
 # for each existing row, the function will extract the nouns in the column placeholders
 # and add to the new column
@@ -76,34 +84,67 @@ def add_nouns_verb_column(pool):
     pool['nouns'] = pool.apply(extract_nouns, axis=1)
     pool['verbs'] = pool.apply(extract_verbs, axis=1)
 
+
+# Function that chooses x random rows from the dataframe pool
+def choose_random_templates(unique_templates, x):
+    all_templates = []
+    past_index = []
+    #  loop x times chosing one row at a time
+    for i in range(x):
+        while True:
+            random_index = random.randint(0, len(unique_templates)-1)
+            if random_index not in past_index:
+                past_index.append(random_index)
+                break
+        templates = unique_templates[random_index]
+        all_templates.append(templates)
+    return all_templates
+
 # Function that chooses x random rows from the dataframe pool
 def choose_random_nouns(pool, x):
     all_nouns = []
     past_index = []
+    count_all_nouns=0
     #  loop x times chosing one row at a time
-    for i in range(x):
+    while True:
         while True:
             random_index = random.randint(0, len(pool)-1)
+            nouns = pool['nouns'][random_index]
+            # Flatten the nested list into a single list
             if random_index not in past_index:
                 past_index.append(random_index)
                 break
-        nouns = pool['nouns'][random_index]
         all_nouns.append(nouns)
-    return all_nouns
+        count_all_nouns=len(set([item for sublist in all_nouns for item in sublist if item not in ['', None]]))
+        if count_all_nouns >= x:
+            break
+    return list(set([item for sublist in all_nouns for item in sublist if item not in ['', None]]))[:x]
 
 def choose_random_verbs(pool, x):
     all_verbs = []
     past_index = []
+    count_all_verbs=0
     #  loop x times chosing one row at a time
-    for i in range(x):
+    while True:
         while True:
             random_index = random.randint(0, len(pool)-1)
+            verbs = pool['verbs'][random_index]
             if random_index not in past_index:
                 past_index.append(random_index)
                 break
-        verbs = pool['verbs'][random_index]
         all_verbs.append(verbs)
-    return all_verbs
+        count_all_verbs=len(set([item for sublist in all_verbs for item in sublist if item not in ['', None, ']', '[']]))
+        if count_all_verbs >= x:
+            break
+    return list(set([item for sublist in all_verbs for item in sublist if item not in ['', None, ']', '[']]))[:x]
+
+def create_df_known_labels_atomic(pool, unknown_templates):
+
+    # Filter the DataFrame to exclude rows with templates in the unknown_templates array
+    known_labels = pool[~pool['template'].isin(unknown_templates)]
+    unknown_labels = pool[pool['template'].isin(unknown_templates)]
+
+    return known_labels, unknown_labels
 
 def create_df_known_labels_unkv(pool, unknown_nouns):
 
@@ -115,6 +156,23 @@ def create_df_known_labels_unkv(pool, unknown_nouns):
     unknown_labels = pool[pool['nouns'].apply(lambda x: any(item for item in x if item in flat_unknown_nouns))]
 
     return known_labels, unknown_labels
+
+def atomic_open_set(known_labels, unknown_labels):
+    # Split the known_labels dataframe into training and testing sets
+    train_df = known_labels.sample(frac=0.7, random_state=42)
+    print('size of train_df: ', len(train_df))
+    test_df = known_labels.drop(train_df.index)
+    print('size of test_df: ', len(test_df))
+    
+    # Append the unknown_labels dataframe to the test set
+    # test_df = test_df.append(unknown_labels, ignore_index=True)
+    test_df = pd.concat([test_df, unknown_labels], ignore_index=True)
+    print('size of test_df: ', len(test_df))
+    
+    # Save the train and test dataframes to JSON files
+    train_df.to_json('atomic_train.json', orient='records', lines=True)
+    test_df.to_json('atomic_test.json', orient='records', lines=True)
+
 
 def unknown_noun_known_verb(known_labels, unknown_labels):
     # Find all unique verbs in known_labels and convert to set
@@ -228,10 +286,17 @@ if __name__ == "__main__":
     pool = read_jsons()
     add_nouns_verb_column(pool)
     print(pool)
+    uni_template = unique_templates(pool)
+    print('size uni_templates: ', len(uni_template))
+    unknown_templates = choose_random_templates(uni_template, 10)
+    print(unknown_templates)
     unknown_nouns = choose_random_nouns(pool,10)
     print(unknown_nouns)
     unknown_verbs = choose_random_verbs(pool,10)
     print(unknown_verbs)
+    # Atomic version
+    known_labels, unknown_labels = create_df_known_labels_atomic(pool, unknown_templates)
+    atomic_open_set(known_labels, unknown_labels)
     # Unknown Nouns + Known Verbs
     known_labels, unknown_labels = create_df_known_labels_unkv(pool, unknown_nouns)
     unknown_noun_known_verb(known_labels, unknown_labels)
