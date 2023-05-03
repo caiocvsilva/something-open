@@ -34,6 +34,14 @@ def read_jsons():
 
     return pd.concat(pool, ignore_index=True)
 
+# fucntion that receives two arrays fo strings, called unknown_nouns and unknown_verbs, to a json file called unknown_choices.json
+def save_unknown_choices(unknown_templates, unknown_nouns, unknown_verbs):
+    # Create a dictionary with the two arrays
+    unknown_choices = {'unknown_templates': unknown_templates,'unknown_nouns': unknown_nouns, 'unknown_verbs': unknown_verbs}
+    # Create a json file with the dictionary
+    with open('unknown_choices.json', 'w') as json_file:
+        json.dump(unknown_choices, json_file)
+
 
 def unique_templates(pool):
     """
@@ -55,7 +63,7 @@ def extract_nouns(row):
         
         # iterate through the tagged words list and append singular nouns to the nouns list
         for word, pos in tagged:
-            if (pos == 'NN' or pos == 'NNS' or pos == 'NNP' or pos == 'NNPS'):
+            if (pos == 'NN' or pos == 'NNS' or pos == 'NNP' or pos == 'NNPS')and (not word.isnumeric()):
                 # lemmatize the word to its singular form
                 word = word.lower()
                 word_s = p.singular_noun(word)
@@ -77,7 +85,7 @@ def extract_verbs(row):
     
     tokens = nltk.word_tokenize(text)
     tagged = nltk.pos_tag(tokens)
-    verbs = [word.lower() for word, pos in tagged if (pos == 'VB' or pos == 'VBD' or pos == 'VBG' or pos == 'VBN' or pos == 'VBP' or pos == 'VBZ')]
+    verbs = [word.lower() for word, pos in tagged if (pos == 'VB' or pos == 'VBD' or pos == 'VBG' or pos == 'VBN' or pos == 'VBP' or pos == 'VBZ')and (not word.isnumeric())]
     return verbs
 
 def add_nouns_verb_column(pool):
@@ -285,6 +293,8 @@ def unknown_noun_unknown_verb(known_labels, unknown_labels):
 if __name__ == "__main__":
     pool = read_jsons()
     add_nouns_verb_column(pool)
+    pool.loc[~pool['nouns'].astype(bool), 'nouns'] = pool['placeholders']
+    pool['verb+noun'] = pool['verbs'].str[0] + ' ' + pool['nouns'].str[0]
     print(pool)
     uni_template = unique_templates(pool)
     print('size uni_templates: ', len(uni_template))
@@ -294,6 +304,7 @@ if __name__ == "__main__":
     print(unknown_nouns)
     unknown_verbs = choose_random_verbs(pool,10)
     print(unknown_verbs)
+    save_unknown_choices(unknown_templates, unknown_nouns, unknown_verbs)
     # Atomic version
     known_labels, unknown_labels = create_df_known_labels_atomic(pool, unknown_templates)
     atomic_open_set(known_labels, unknown_labels)
