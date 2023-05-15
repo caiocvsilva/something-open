@@ -146,6 +146,27 @@ def choose_random_verbs(pool, x):
             break
     return list(set([item for sublist in all_verbs for item in sublist if item not in ['', None, ']', '[']]))[:x]
 
+
+def create_json_stats(train_df, test_df, name_scenario):
+    list_train_nouns_classes = list(set([item for sublist in train_df['nouns'] for item in sublist if item not in ['', None]]))
+    list_train_verbs_classes = list(set([item for sublist in train_df['verbs'] for item in sublist if item not in ['', None]]))
+    list_test_nouns_classes = list(set([item for sublist in test_df['nouns'] for item in sublist if item not in ['', None]]))
+    list_test_verbs_classes = list(set([item for sublist in test_df['verbs'] for item in sublist if item not in ['', None]]))
+
+    print('number of train classes noun: ', len(list_train_nouns_classes))
+    print('list of train classes noun: ', list_train_nouns_classes)
+    print('number of train classes verb: ', len(list_train_verbs_classes))
+    print('list of train classes verb: ', list_train_verbs_classes)
+    print('number of test classes noun: ', len(list_test_nouns_classes))
+    print('list of test classes noun: ', list_test_nouns_classes)
+    print('number of test classes verb: ', len(list_test_verbs_classes))
+    print('list of test classes verb: ', list_test_verbs_classes)
+
+    # save json with stats for name_scenario (containing size of train and test set, number of classes  and the classes in train and test set)
+    stats = {'size_train': len(train_df), 'size_test': len(test_df), 'number_classes_train_noun': len(list_train_nouns_classes), 'number_classes_train_verb': len(list_train_verbs_classes), 'number_classes_test_noun': len(list_test_nouns_classes), 'number_classes_test_verb': len(list_test_verbs_classes), 'list_classes_train_noun': list_train_nouns_classes, 'list_classes_train_verb': list_train_verbs_classes, 'list_classes_test_noun': list_test_nouns_classes, 'list_classes_test_verb': list_test_verbs_classes}
+    with open(name_scenario+'_stats.json', 'w') as fp:
+        json.dump(stats, fp)
+
 def create_df_known_labels_atomic(pool, unknown_templates):
 
     # Filter the DataFrame to exclude rows with templates in the unknown_templates array
@@ -168,15 +189,17 @@ def create_df_known_labels_unkv(pool, unknown_nouns):
 def atomic_open_set(known_labels, unknown_labels):
     # Split the known_labels dataframe into training and testing sets
     train_df = known_labels.sample(frac=0.7, random_state=42)
-    print('size of train_df: ', len(train_df))
+    print('[atomic] size of train_df: ', len(train_df))
     test_df = known_labels.drop(train_df.index)
-    print('size of test_df: ', len(test_df))
+    print('[atomic] k - size of test_df: ', len(test_df))
     
     # Append the unknown_labels dataframe to the test set
     # test_df = test_df.append(unknown_labels, ignore_index=True)
     test_df = pd.concat([test_df, unknown_labels], ignore_index=True)
-    print('size of test_df: ', len(test_df))
-    
+    print('[atomic] k+u - size of test_df: ', len(test_df))
+
+    create_json_stats(train_df, test_df, 'atomic_open_set')
+
     # Save the train and test dataframes to JSON files
     train_df.to_json('atomic_train.json', orient='records', lines=True)
     test_df.to_json('atomic_test.json', orient='records', lines=True)
@@ -202,6 +225,8 @@ def unknown_noun_known_verb(known_labels, unknown_labels):
     # test_df = test_df.append(unknown_labels, ignore_index=True)
     test_df = pd.concat([test_df, unknown_labels], ignore_index=True)
     print('[unkv] k+u - size of test_df: ', len(test_df))
+
+    create_json_stats(train_df, test_df, 'unkv_known_verb')
     
     # Save the train and test dataframes to JSON files
     train_df.to_json('unkv_train.json', orient='records', lines=True)
@@ -237,6 +262,8 @@ def known_noun_unknown_verb(known_labels, unknown_labels):
     # Append the unknown_labels dataframe to the test set
     test_df = pd.concat([test_df, unknown_labels], ignore_index=True)
     print('[knuv] k+u - size of test_df: ', len(test_df))
+
+    create_json_stats(train_df, test_df, 'knuv_known_noun')
     
     # Save the train and test dataframes to JSON files
     train_df.to_json('knuv_train.json', orient='records', lines=True)
@@ -283,6 +310,8 @@ def unknown_noun_unknown_verb(known_labels, unknown_labels):
     # Append the unknown_labels dataframe to the test set
     test_df = pd.concat([test_df, unknown_labels], ignore_index=True)
     print('[unuv] k+u - size of test_df: ', len(test_df))
+
+    create_json_stats(train_df, test_df, 'unuv_known_noun')
     
     # Save the train and test dataframes to JSON files
     train_df.to_json('unuv_train.json', orient='records', lines=True)
