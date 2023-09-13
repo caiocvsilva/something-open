@@ -1,3 +1,14 @@
+    # scenario   verbs   nouns
+    # closed      K       K
+    # UNKV        K       U
+    # KNUV        U       K
+    # UNUV        U       U
+
+    # Label: Showing Wallet
+
+    # Problems: a remote / remote / remot
+    # Problems: [ is a verb 
+
 
 import json
 import sys
