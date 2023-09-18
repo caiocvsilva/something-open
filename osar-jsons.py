@@ -16,13 +16,15 @@ import pandas as pd
 import random
 import nltk
 from itertools import chain
-import inflect
+from nltk.stem import WordNetLemmatizer
+import re
 
 
 nltk.download('averaged_perceptron_tagger')   # Downloading the required NLTK model
 nltk.download('punkt')
 nltk.download('wordnet')
-p = inflect.engine()
+nltk.download('omw-1.4')
+p = WordNetLemmatizer()
 
 
 def read_jsons():
@@ -61,6 +63,11 @@ def unique_templates(pool):
     unique = pool['template'].unique()
     return list(unique)
 
+# function that checks if a string is composed of letters (to remove numbers and special characters)
+def is_composed_of_letters(input_string):
+    pattern = r'^[a-zA-Z]+$'
+    return re.match(pattern, input_string) is not None
+
 # A function that adds a new column to the dataframe pool called nouns
 # for each existing row, the function will extract the nouns in the column placeholders
 # and add to the new column
@@ -69,23 +76,22 @@ def extract_nouns(row):
     nouns = []
     for text in text_array:
         tokens = nltk.word_tokenize(text)
+        filtered_tokens = [token for token in tokens if is_composed_of_letters(token)]
+        tokens = filtered_tokens
         tagged = nltk.pos_tag(tokens)
-        # nouns.extend([word.lower() for word, pos in tagged if (pos == 'NN' or pos == 'NNS' or pos == 'NNP' or pos == 'NNPS')])
         
         # iterate through the tagged words list and append singular nouns to the nouns list
         for word, pos in tagged:
-            if (pos == 'NN' or pos == 'NNS' or pos == 'NNP' or pos == 'NNPS')and (not word.isnumeric()):
+            if (pos == 'NN' or pos == 'NNS' or pos == 'NNP' or pos == 'NNPS' or pos == 'VB') and (not word.isnumeric()):
                 # lemmatize the word to its singular form
                 word = word.lower()
-                word_s = p.singular_noun(word)
+                word_s = p.lemmatize(word, pos='n')
                 # if the word is not changed into a singular form, keep it as it is
                 if not word_s:
                     nouns.append(word)
                 else:
                     nouns.append(word_s)
-        
     return nouns
-
 
 # A function that adds a new column to the dataframe pool called verbs
 # for each existing row, the function will extract the verbs in the column template
@@ -95,14 +101,12 @@ def extract_verbs(row):
     verbs = []
     
     tokens = nltk.word_tokenize(text)
+    filtered_tokens = [token for token in tokens if is_composed_of_letters(token)]
+    tokens = filtered_tokens
     tagged = nltk.pos_tag(tokens)
     verbs = [word.lower() for word, pos in tagged if (pos == 'VB' or pos == 'VBD' or pos == 'VBG' or pos == 'VBN' or pos == 'VBP' or pos == 'VBZ')and (not word.isnumeric())]
+    
     return verbs
-
-def add_nouns_verb_column(pool):
-    pool['nouns'] = pool.apply(extract_nouns, axis=1)
-    pool['verbs'] = pool.apply(extract_verbs, axis=1)
-
 
 # Function that chooses x random rows from the dataframe pool
 def choose_random_templates(unique_templates, x):
