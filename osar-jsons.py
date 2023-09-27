@@ -18,6 +18,7 @@ import nltk
 from itertools import chain
 from nltk.stem import WordNetLemmatizer
 import re
+from spellchecker import SpellChecker
 
 
 nltk.download('averaged_perceptron_tagger')   # Downloading the required NLTK model
@@ -25,6 +26,15 @@ nltk.download('punkt')
 nltk.download('wordnet')
 nltk.download('omw-1.4')
 p = WordNetLemmatizer()
+
+json_file_name = 'misspelled_nouns.json'
+with open(json_file_name, 'r') as json_file:
+    misspelled_nouns = json.load(json_file)
+
+
+json_file_name = 'corrected_nouns.json'
+with open(json_file_name, 'r') as json_file:
+    corrected_nouns = json.load(json_file)
 
 
 def read_jsons():
@@ -46,6 +56,8 @@ def read_jsons():
         pool.append(data2)
 
     return pd.concat(pool, ignore_index=True)
+
+
 
 # fucntion that receives two arrays fo strings, called unknown_nouns and unknown_verbs, to a json file called unknown_choices.json
 def save_unknown_choices(unknown_templates, unknown_nouns, unknown_verbs):
@@ -72,6 +84,7 @@ def is_composed_of_letters(input_string):
 # for each existing row, the function will extract the nouns in the column placeholders
 # and add to the new column
 def extract_nouns(row):
+    blocked_strings = ['..', '.40', '/', '\\', ']','%', '‘','’']
     text_array = row['placeholders'] #Replace 'placeholders' with the actual name of the column containing your text data
     nouns = []
     for text in text_array:
@@ -82,15 +95,19 @@ def extract_nouns(row):
         
         # iterate through the tagged words list and append singular nouns to the nouns list
         for word, pos in tagged:
-            if (pos == 'NN' or pos == 'NNS' or pos == 'NNP' or pos == 'NNPS' or pos == 'VB') and (not word.isnumeric()):
+            if (pos == 'NN' or pos == 'NNS' or pos == 'NNP' or pos == 'NNPS' or pos == 'VB') and (not word.isnumeric() and (word not in blocked_strings) and ("'" not in word) and (len(word) > 1)):
                 # lemmatize the word to its singular form
                 word = word.lower()
                 word_s = p.lemmatize(word, pos='n')
                 # if the word is not changed into a singular form, keep it as it is
                 if not word_s:
-                    nouns.append(word)
+                    singular_noun = word
                 else:
-                    nouns.append(word_s)
+                    singular_noun = word_s
+                if singular_noun in misspelled_nouns and corrected_nouns[misspelled_nouns.index(singular_noun)] is not None:
+                    nouns.append(corrected_nouns[misspelled_nouns.index(singular_noun)])
+                else:
+                    nouns.append(singular_noun)
     return nouns
 
 # A function that adds a new column to the dataframe pool called verbs
@@ -107,6 +124,10 @@ def extract_verbs(row):
     verbs = [word.lower() for word, pos in tagged if (pos == 'VB' or pos == 'VBD' or pos == 'VBG' or pos == 'VBN' or pos == 'VBP' or pos == 'VBZ')and (not word.isnumeric())]
     
     return verbs
+
+def add_nouns_verb_column(pool):
+    pool['nouns'] = pool.apply(extract_nouns, axis=1)
+    pool['verbs'] = pool.apply(extract_verbs, axis=1)
 
 # Function that chooses x random rows from the dataframe pool
 def choose_random_templates(unique_templates, x):
@@ -339,7 +360,7 @@ if __name__ == "__main__":
     add_nouns_verb_column(pool)
     pool.loc[~pool['nouns'].astype(bool), 'nouns'] = pool['placeholders']
     pool['verb+noun'] = pool['verbs'].str[0] + ' ' + pool['nouns'].str[0]
-    print(pool)
+    # print(pool)
     uni_template = unique_templates(pool)
     print('size uni_templates: ', len(uni_template))
     unknown_templates = choose_random_templates(uni_template, 10)
