@@ -4,11 +4,6 @@
     # KNUV        U       K
     # UNUV        U       U
 
-    # Label: Showing Wallet
-
-    # Problems: a remote / remote / remot
-    # Problems: [ is a verb 
-
 
 import json
 import sys
@@ -203,7 +198,8 @@ def create_json_stats(train_df, test_df, name_scenario):
     with open(name_scenario+'_stats.json', 'w') as fp:
         json.dump(stats, fp)
 
-def create_df_known_labels_atomic(pool, unknown_templates):
+# Scenario - FULL 
+def create_df_known_labels_full(pool, unknown_templates):
 
     # Filter the DataFrame to exclude rows with templates in the unknown_templates array
     known_labels = pool[~pool['template'].isin(unknown_templates)]
@@ -211,6 +207,25 @@ def create_df_known_labels_atomic(pool, unknown_templates):
 
     return known_labels, unknown_labels
 
+def full_open_set(known_labels, unknown_labels):
+    # Split the known_labels dataframe into training and testing sets
+    train_df = known_labels.sample(frac=0.7, random_state=42)
+    print('[full] size of train_df: ', len(train_df))
+    test_df = known_labels.drop(train_df.index)
+    print('[full] k - size of test_df: ', len(test_df))
+    
+    # Append the unknown_labels dataframe to the test set
+    # test_df = test_df.append(unknown_labels, ignore_index=True)
+    test_df = pd.concat([test_df, unknown_labels], ignore_index=True)
+    print('[full] k+u - size of test_df: ', len(test_df))
+
+    create_json_stats(train_df, test_df, 'full_open_set')
+
+    # Save the train and test dataframes to JSON files
+    train_df.to_json('full_train.json', orient='records', lines=True)
+    test_df.to_json('full_test.json', orient='records', lines=True)
+
+# Scenario - UNKV 
 def create_df_known_labels_unkv(pool, unknown_nouns):
 
     # flatten unknown_nouns list
@@ -221,24 +236,6 @@ def create_df_known_labels_unkv(pool, unknown_nouns):
     unknown_labels = pool[pool['nouns'].apply(lambda x: any(item for item in x if item in flat_unknown_nouns))]
 
     return known_labels, unknown_labels
-
-def atomic_open_set(known_labels, unknown_labels):
-    # Split the known_labels dataframe into training and testing sets
-    train_df = known_labels.sample(frac=0.7, random_state=42)
-    print('[atomic] size of train_df: ', len(train_df))
-    test_df = known_labels.drop(train_df.index)
-    print('[atomic] k - size of test_df: ', len(test_df))
-    
-    # Append the unknown_labels dataframe to the test set
-    # test_df = test_df.append(unknown_labels, ignore_index=True)
-    test_df = pd.concat([test_df, unknown_labels], ignore_index=True)
-    print('[atomic] k+u - size of test_df: ', len(test_df))
-
-    create_json_stats(train_df, test_df, 'atomic_open_set')
-
-    # Save the train and test dataframes to JSON files
-    train_df.to_json('atomic_train.json', orient='records', lines=True)
-    test_df.to_json('atomic_test.json', orient='records', lines=True)
 
 
 def unknown_noun_known_verb(known_labels, unknown_labels):
@@ -268,6 +265,8 @@ def unknown_noun_known_verb(known_labels, unknown_labels):
     train_df.to_json('unkv_train.json', orient='records', lines=True)
     test_df.to_json('unkv_test.json', orient='records', lines=True)
 
+
+# Scenario - KNUV
 def create_df_known_labels_knuv(pool, unknown_verbs):
 
     # flatten unknown_verbs list
@@ -304,6 +303,8 @@ def known_noun_unknown_verb(known_labels, unknown_labels):
     # Save the train and test dataframes to JSON files
     train_df.to_json('knuv_train.json', orient='records', lines=True)
     test_df.to_json('knuv_test.json', orient='records', lines=True)
+
+# Scenario - UNUV
 
 def create_df_known_labels_unuv(pool, unknown_nouns, unknown_verbs):
 
@@ -358,9 +359,9 @@ def unknown_noun_unknown_verb(known_labels, unknown_labels):
 if __name__ == "__main__":
     pool = read_jsons()
     add_nouns_verb_column(pool)
-    pool.loc[~pool['nouns'].astype(bool), 'nouns'] = pool['placeholders']
+    pool.loc[~pool['nouns'].astype(bool), 'nouns'] = pool['placeholders'] #replace None noun with original placeholder
     pool['verb+noun'] = pool['verbs'].str[0] + ' ' + pool['nouns'].str[0]
-    # print(pool)
+    # Choose unknowns
     uni_template = unique_templates(pool)
     print('size uni_templates: ', len(uni_template))
     unknown_templates = choose_random_templates(uni_template, 10)
@@ -370,9 +371,10 @@ if __name__ == "__main__":
     unknown_verbs = choose_random_verbs(pool,10)
     print(unknown_verbs)
     save_unknown_choices(unknown_templates, unknown_nouns, unknown_verbs)
-    # Atomic version
-    known_labels, unknown_labels = create_df_known_labels_atomic(pool, unknown_templates)
-    atomic_open_set(known_labels, unknown_labels)
+    # Create json Scenarios
+    # Full sentence
+    known_labels, unknown_labels = create_df_known_labels_full(pool, unknown_templates)
+    full_open_set(known_labels, unknown_labels)
     # Unknown Nouns + Known Verbs
     known_labels, unknown_labels = create_df_known_labels_unkv(pool, unknown_nouns)
     unknown_noun_known_verb(known_labels, unknown_labels)
