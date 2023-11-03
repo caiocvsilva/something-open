@@ -1,10 +1,11 @@
 import json
+import sys
 
 # Input JSON file with multiple objects
-input_file = 'unkv_train.json'
+input_file = sys.argv[1]
 
 # Output JSON file with a single object
-output_file = 'unkv_train_fix.json'
+output_file = input_file.split('.')[0]+'_fix.json'
 
 # Read the input JSON file
 with open(input_file, 'r') as infile:
