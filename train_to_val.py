@@ -21,8 +21,9 @@ unique_labels = df['label'].value_counts()
 high_count_labels = unique_labels[unique_labels > 10].index
 
 # Split the dataframe into train and val
-train = df[~df['label'].isin(high_count_labels)]
 val = df[df['label'].isin(high_count_labels)].sample(frac=0.2)
+# train has all the rows not in val
+train = df[~df.isin(val)].dropna()
 
 print(train.shape)
 print(val.shape)
