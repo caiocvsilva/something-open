@@ -33,8 +33,8 @@ train_output_path = path_file.split('.')[0]+'v2.txt'
 val_output_path = path_file.split('.')[0].replace('train', 'val')+'v2.txt'
 
 # Save the train and val dataframes to csv
-train.to_csv(train_output_path, index=False, sep=' ')
-val.to_csv(val_output_path, index=False, sep=' ')
+train.to_csv(train_output_path, index=False, sep=' ',header=False)
+val.to_csv(val_output_path, index=False, sep=' ', header=False)
 
 
 
