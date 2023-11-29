@@ -178,9 +178,11 @@ def choose_random_verbs(pool, x):
     return list(set([item for sublist in all_verbs for item in sublist if item not in ['', None, ']', '[']]))[:x]
 
 
-def create_json_stats(train_df, test_df, name_scenario):
+def create_json_stats(train_df, val_df, test_df, name_scenario):
     list_train_nouns_classes = list(set([item for sublist in train_df['nouns'] for item in sublist if item not in ['', None]]))
     list_train_verbs_classes = list(set([item for sublist in train_df['verbs'] for item in sublist if item not in ['', None]]))
+    list_val_nouns_classes = list(set([item for sublist in val_df['nouns'] for item in sublist if item not in ['', None]]))
+    list_val_verbs_classes = list(set([item for sublist in val_df['verbs'] for item in sublist if item not in ['', None]]))
     list_test_nouns_classes = list(set([item for sublist in test_df['nouns'] for item in sublist if item not in ['', None]]))
     list_test_verbs_classes = list(set([item for sublist in test_df['verbs'] for item in sublist if item not in ['', None]]))
 
@@ -188,15 +190,23 @@ def create_json_stats(train_df, test_df, name_scenario):
     print('list of train classes noun: ', list_train_nouns_classes)
     print('number of train classes verb: ', len(list_train_verbs_classes))
     print('list of train classes verb: ', list_train_verbs_classes)
+    print('number of val classes noun: ', len(list_val_nouns_classes))
+    print('list of val classes noun: ', list_val_nouns_classes)
+    print('number of val classes verb: ', len(list_val_verbs_classes))
+    print('list of val classes verb: ', list_val_verbs_classes)
     print('number of test classes noun: ', len(list_test_nouns_classes))
     print('list of test classes noun: ', list_test_nouns_classes)
     print('number of test classes verb: ', len(list_test_verbs_classes))
     print('list of test classes verb: ', list_test_verbs_classes)
 
     # save json with stats for name_scenario (containing size of train and test set, number of classes  and the classes in train and test set)
-    stats = {'size_train': len(train_df), 'size_test': len(test_df), 'number_classes_train_noun': len(list_train_nouns_classes), 'number_classes_train_verb': len(list_train_verbs_classes), 'number_classes_test_noun': len(list_test_nouns_classes), 'number_classes_test_verb': len(list_test_verbs_classes), 'list_classes_train_noun': list_train_nouns_classes, 'list_classes_train_verb': list_train_verbs_classes, 'list_classes_test_noun': list_test_nouns_classes, 'list_classes_test_verb': list_test_verbs_classes}
-    with open(name_scenario+'_stats.json', 'w') as fp:
-        json.dump(stats, fp)
+    stats = {'size_train': len(train_df), 'size_val': len(val_df) ,'size_test': len(test_df), 'number_classes_train_noun': len(list_train_nouns_classes), 'number_classes_train_verb': len(list_train_verbs_classes), 'number_classes_val_noun': len(list_val_nouns_classes),'number_classes_val_verb': len(list_val_verbs_classes),,'number_classes_test_noun': len(list_test_nouns_classes), 'number_classes_test_verb': len(list_test_verbs_classes), 'list_classes_train_noun': list_train_nouns_classes, 'list_classes_train_verb': list_train_verbs_classes, 'list_classes_val_noun': list_val_nouns_classes, 'list_classes_val_verb': list_val_verbs_classes,'list_classes_test_noun': list_test_nouns_classes, 'list_classes_test_verb': list_test_verbs_classes}
+    # with open(name_scenario+'_stats.json', 'w') as fp:
+    #     json.dump(stats, fp)
+    stats_df = pd.DataFrame([stats])
+
+    # Save the DataFrame to a CSV file
+    stats_df.to_csv(name_scenario+'_stats.csv', index=False)
 
 # Scenario - FULL 
 def create_df_known_labels_full(pool, unknown_templates):
@@ -210,10 +220,14 @@ def create_df_known_labels_full(pool, unknown_templates):
 def full_open_set(known_labels, unknown_labels):
     # Split the known_labels dataframe into training and testing sets
     train_df = known_labels.sample(frac=0.7, random_state=42)
+    # split train_df into train_df and val_df, val_df will be 20% of train_df
+    val_df = train_df.sample(frac=0.2, random_state=42)
+    train_df = train_df.drop(val_df.index)
     print('[full] size of train_df: ', len(train_df))
+    print('[full] size of val_df: ', len(val_df))
     test_df = known_labels.drop(train_df.index)
     print('[full] k - size of test_df: ', len(test_df))
-    
+
     # Append the unknown_labels dataframe to the test set
     # test_df = test_df.append(unknown_labels, ignore_index=True)
     test_df = pd.concat([test_df, unknown_labels], ignore_index=True)
@@ -222,8 +236,8 @@ def full_open_set(known_labels, unknown_labels):
     create_json_stats(train_df, test_df, 'full_open_set')
 
     # Save the train and test dataframes to JSON files
-    train_df.to_json('full_train.json', orient='records', lines=True)
-    test_df.to_json('full_test.json', orient='records', lines=True)
+    train_df.to_csv('full_train.json', index=False)
+    test_df.to_csv('full_test.json', index=False)
 
 # Scenario - UNKV 
 def create_df_known_labels_unkv(pool, unknown_nouns):
@@ -250,7 +264,11 @@ def unknown_noun_known_verb(known_labels, unknown_labels):
     
     # Split the known_labels dataframe into training and testing sets
     train_df = known_labels.sample(frac=0.7, random_state=42)
+    # split train_df into train_df and val_df, val_df will be 20% of train_df
+    val_df = train_df.sample(frac=0.2, random_state=42)
+    train_df = train_df.drop(val_df.index)
     print('[unkv] size of train_df: ', len(train_df))
+    print('[unkv] size of val_df: ', len(val_df))
     test_df = known_labels.drop(train_df.index)
     print('[unkv] k - size of test_df: ', len(test_df))
     
@@ -262,8 +280,9 @@ def unknown_noun_known_verb(known_labels, unknown_labels):
     create_json_stats(train_df, test_df, 'unkv_known_verb')
     
     # Save the train and test dataframes to JSON files
-    train_df.to_json('unkv_train.json', orient='records', lines=True)
-    test_df.to_json('unkv_test.json', orient='records', lines=True)
+    train_df.to_csv('unkv_train.csv', index=False)
+    val_df.to_csv('unkv_val.csv', index=False)
+    test_df.to_csv('unkv_test.csv', index=False)
 
 
 # Scenario - KNUV
@@ -290,7 +309,11 @@ def known_noun_unknown_verb(known_labels, unknown_labels):
     
     # Split the known_labels dataframe into training and testing sets
     train_df = known_labels.sample(frac=0.7, random_state=42)
+    # split train_df into train_df and val_df, val_df will be 20% of train_df
+    val_df = train_df.sample(frac=0.2, random_state=42)
+    train_df = train_df.drop(val_df.index)
     print('[knuv] size of train_df: ', len(train_df))
+    print('[knuv] size of val_df: ', len(val_df))
     test_df = known_labels.drop(train_df.index)
     print('[knuv] k - size of test_df: ', len(test_df))
     
@@ -301,8 +324,9 @@ def known_noun_unknown_verb(known_labels, unknown_labels):
     create_json_stats(train_df, test_df, 'knuv_known_noun')
     
     # Save the train and test dataframes to JSON files
-    train_df.to_json('knuv_train.json', orient='records', lines=True)
-    test_df.to_json('knuv_test.json', orient='records', lines=True)
+    train_df.to_csv('knuv_train.csv', index=False)
+    val_df.to_csv('knuv_val.csv', index=False)
+    test_df.to_csv('knuv_test.csv', index=False)
 
 # Scenario - UNUV
 
@@ -340,7 +364,11 @@ def unknown_noun_unknown_verb(known_labels, unknown_labels):
     
     # Split the known_labels dataframe into training and testing sets
     train_df = known_labels.sample(frac=0.7, random_state=42)
+    # split train_df into train_df and val_df, val_df will be 20% of train_df
+    val_df = train_df.sample(frac=0.2, random_state=42)
+    train_df = train_df.drop(val_df.index)
     print('[unuv] size of train_df: ', len(train_df))
+    print('[unuv] size of val_df: ', len(val_df))
     test_df = known_labels.drop(train_df.index)
     print('[unuv] k - size of test_df: ', len(test_df))
     
@@ -351,8 +379,55 @@ def unknown_noun_unknown_verb(known_labels, unknown_labels):
     create_json_stats(train_df, test_df, 'unuv_known_noun')
     
     # Save the train and test dataframes to JSON files
-    train_df.to_json('unuv_train.json', orient='records', lines=True)
-    test_df.to_json('unuv_test.json', orient='records', lines=True)
+    train_df.to_csv('unuv_train.csv', index=False)
+    val_df.to_csv('unuv_val.csv', index=False)
+    test_df.to_csv('unuv_test.csv', index=False)
+
+
+
+
+
+#Generate txt files for annotations (mmaction)
+def generate_annotation_and_class_files(train_df, , scenario, type):
+    # Initialize a set to collect unique verb_noun
+    unique_verbs_nouns = []
+
+    data = df
+        
+    # Extract unique verb_noun from the data and add to the set
+    for item in data[]:
+        unique_verbs_nouns.append(item['verb+noun'])
+
+    unique_verbs_nouns = set(unique_verbs_nouns)
+
+     # Create a mapping of nouns to class numbers
+    verb_noun_to_class = {verb_noun: idx for idx, verb_noun in enumerate(unique_verbs_nouns)}
+
+    # Define the path for annotation
+    dataset_path = '/shared/datasets/something/20bn-something-something-v2/'
+    annotation_file = 'ann_'+scenario+'_'+type+'.txt'
+    class_file = 'class_'+scenario+'_'+type+'.txt'
+
+
+    with open(annotation_file, 'w') as ann_file:
+        for _, item in data.iterrows():
+            video_id = item['id']
+            verb_nouns = item['verb+noun']
+            class_number = verb_noun_to_class[verb_nouns]
+            video_path = os.path.join(dataset_path, video_id)
+
+            # Write annotation file
+            ann_file.write(f'{video_path} {class_number}\n')
+
+
+    # Create a shared class file
+    with open(class_file, 'w') as cls_file:
+        class_names = unique_nouns
+        cls_file.write(str(class_names))
+
+if __name__ == "__main__":
+    # Replace 'csv1.csv' and 'csv2.csv' with your CSV file names
+    generate_annotation_and_class_files(['unkv_train_fix.csv', 'unkv_test_fix.csv'], ['ann_unkv_train.txt', 'ann_unkv_test.txt'], 'class_unkv.txt')
     
 
 
@@ -361,6 +436,10 @@ if __name__ == "__main__":
     add_nouns_verb_column(pool)
     pool.loc[~pool['nouns'].astype(bool), 'nouns'] = pool['placeholders'] #replace None noun with original placeholder
     pool['verb+noun'] = pool['verbs'].str[0] + ' ' + pool['nouns'].str[0]
+    counts = pool['verb+noun'].value_counts() # count how many examples each class
+    pool_filtered = pool[pool['verb+noun'].isin(counts[counts >= 100].index)] # remove all class less 100 examples
+    capped_pool = pool_filtered.groupby('verb+noun').apply(lambda x: x.sample(min(len(x), 100))).reset_index(drop=True) # cap each class to 100 examples
+    pool = capped_pool
     # Choose unknowns
     uni_template = unique_templates(pool)
     print('size uni_templates: ', len(uni_template))
@@ -384,3 +463,8 @@ if __name__ == "__main__":
     # Unknown Nouns + Unknown Verbs
     known_labels, unknown_labels = create_df_known_labels_unuv(pool, unknown_nouns, unknown_verbs)
     unknown_noun_unknown_verb(known_labels, unknown_labels)
+
+
+    # TODO
+    # Val has to be 20% of examples, but same classes
+    # generation of annotation has to use train and etst, to have all classes to idx
