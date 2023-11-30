@@ -14,6 +14,7 @@ from itertools import chain
 from nltk.stem import WordNetLemmatizer
 import re
 from spellchecker import SpellChecker
+import os
 
 
 nltk.download('averaged_perceptron_tagger')   # Downloading the required NLTK model
@@ -208,6 +209,17 @@ def create_json_stats(train_df, val_df, test_df, name_scenario):
     # Save the DataFrame to a CSV file
     stats_df.to_csv(name_scenario+'_stats.csv', index=False)
 
+
+def split_train_val(df):
+    # If the group has less than 5 rows, put all rows in the train set
+    if len(df) < 5:
+        return df, pd.DataFrame()
+    # Otherwise, randomly select 20% of the rows for the validation set
+    else:
+        val_df = df.sample(frac=0.2, random_state=42)
+        train_df = df.drop(val_df.index)
+        return train_df, val_df
+
 # Scenario - FULL 
 def create_df_known_labels_full(pool, unknown_templates):
 
@@ -218,11 +230,12 @@ def create_df_known_labels_full(pool, unknown_templates):
     return known_labels, unknown_labels
 
 def full_open_set(known_labels, unknown_labels):
-    # Split the known_labels dataframe into training and testing sets
-    train_df = known_labels.sample(frac=0.7, random_state=42)
-    # split train_df into train_df and val_df, val_df will be 20% of train_df
-    val_df = train_df.sample(frac=0.2, random_state=42)
-    train_df = train_df.drop(val_df.index)
+    # Group the DataFrame by 'verb+noun' and apply the split function to each group
+    groups = known_labels.groupby('verb+noun').apply(split_train_val)
+
+    # Concatenate the results to create the final train and validation DataFrames
+    train_df = pd.concat([g[0] for g in groups])
+    val_df = pd.concat([g[1] for g in groups])
     print('[full] size of train_df: ', len(train_df))
     print('[full] size of val_df: ', len(val_df))
     test_df = known_labels.drop(train_df.index)
@@ -237,7 +250,10 @@ def full_open_set(known_labels, unknown_labels):
 
     # Save the train and test dataframes to JSON files
     train_df.to_csv('full_train.json', index=False)
+    val_df.to_csv('full_val.json', index=False)
     test_df.to_csv('full_test.json', index=False)
+
+    generate_annotation_and_class_files([train_df, val_df, test_df], 'full')
 
 # Scenario - UNKV 
 def create_df_known_labels_unkv(pool, unknown_nouns):
@@ -262,11 +278,12 @@ def unknown_noun_known_verb(known_labels, unknown_labels):
     # Filter out the rows where the mask is True
     unknown_labels = unknown_labels.loc[~mask]
     
-    # Split the known_labels dataframe into training and testing sets
-    train_df = known_labels.sample(frac=0.7, random_state=42)
-    # split train_df into train_df and val_df, val_df will be 20% of train_df
-    val_df = train_df.sample(frac=0.2, random_state=42)
-    train_df = train_df.drop(val_df.index)
+     # Group the DataFrame by 'verb+noun' and apply the split function to each group
+    groups = known_labels.groupby('verb+noun').apply(split_train_val)
+
+    # Concatenate the results to create the final train and validation DataFrames
+    train_df = pd.concat([g[0] for g in groups])
+    val_df = pd.concat([g[1] for g in groups])
     print('[unkv] size of train_df: ', len(train_df))
     print('[unkv] size of val_df: ', len(val_df))
     test_df = known_labels.drop(train_df.index)
@@ -283,6 +300,8 @@ def unknown_noun_known_verb(known_labels, unknown_labels):
     train_df.to_csv('unkv_train.csv', index=False)
     val_df.to_csv('unkv_val.csv', index=False)
     test_df.to_csv('unkv_test.csv', index=False)
+
+    generate_annotation_and_class_files([train_df, val_df, test_df], 'unkv')
 
 
 # Scenario - KNUV
@@ -307,11 +326,12 @@ def known_noun_unknown_verb(known_labels, unknown_labels):
     # Filter out the rows where the mask is True
     unknown_labels = unknown_labels.loc[~mask]
     
-    # Split the known_labels dataframe into training and testing sets
-    train_df = known_labels.sample(frac=0.7, random_state=42)
-    # split train_df into train_df and val_df, val_df will be 20% of train_df
-    val_df = train_df.sample(frac=0.2, random_state=42)
-    train_df = train_df.drop(val_df.index)
+     # Group the DataFrame by 'verb+noun' and apply the split function to each group
+    groups = known_labels.groupby('verb+noun').apply(split_train_val)
+
+    # Concatenate the results to create the final train and validation DataFrames
+    train_df = pd.concat([g[0] for g in groups])
+    val_df = pd.concat([g[1] for g in groups])
     print('[knuv] size of train_df: ', len(train_df))
     print('[knuv] size of val_df: ', len(val_df))
     test_df = known_labels.drop(train_df.index)
@@ -327,6 +347,8 @@ def known_noun_unknown_verb(known_labels, unknown_labels):
     train_df.to_csv('knuv_train.csv', index=False)
     val_df.to_csv('knuv_val.csv', index=False)
     test_df.to_csv('knuv_test.csv', index=False)
+
+    generate_annotation_and_class_files([train_df, val_df, test_df], 'knuv')
 
 # Scenario - UNUV
 
@@ -362,11 +384,12 @@ def unknown_noun_unknown_verb(known_labels, unknown_labels):
     # Filter out the rows where the mask is True
     unknown_labels = unknown_labels.loc[~mask]
     
-    # Split the known_labels dataframe into training and testing sets
-    train_df = known_labels.sample(frac=0.7, random_state=42)
-    # split train_df into train_df and val_df, val_df will be 20% of train_df
-    val_df = train_df.sample(frac=0.2, random_state=42)
-    train_df = train_df.drop(val_df.index)
+     # Group the DataFrame by 'verb+noun' and apply the split function to each group
+    groups = known_labels.groupby('verb+noun').apply(split_train_val)
+
+    # Concatenate the results to create the final train and validation DataFrames
+    train_df = pd.concat([g[0] for g in groups])
+    val_df = pd.concat([g[1] for g in groups])
     print('[unuv] size of train_df: ', len(train_df))
     print('[unuv] size of val_df: ', len(val_df))
     test_df = known_labels.drop(train_df.index)
@@ -383,20 +406,21 @@ def unknown_noun_unknown_verb(known_labels, unknown_labels):
     val_df.to_csv('unuv_val.csv', index=False)
     test_df.to_csv('unuv_test.csv', index=False)
 
+    generate_annotation_and_class_files([train_df, val_df, test_df], 'unuv')
+
 
 
 
 
 #Generate txt files for annotations (mmaction)
-def generate_annotation_and_class_files(train_df, , scenario, type):
+def generate_annotation_and_class_files(dfs, scenario):
     # Initialize a set to collect unique verb_noun
     unique_verbs_nouns = []
 
-    data = df
-        
-    # Extract unique verb_noun from the data and add to the set
-    for item in data[]:
-        unique_verbs_nouns.append(item['verb+noun'])
+    for type_df in dfs:
+        # Extract unique verb_noun from the data and add to the set
+        for _, item in type_df.iterrows():
+            unique_verbs_nouns.append(item['verb+noun'])
 
     unique_verbs_nouns = set(unique_verbs_nouns)
 
@@ -405,31 +429,34 @@ def generate_annotation_and_class_files(train_df, , scenario, type):
 
     # Define the path for annotation
     dataset_path = '/shared/datasets/something/20bn-something-something-v2/'
-    annotation_file = 'ann_'+scenario+'_'+type+'.txt'
-    class_file = 'class_'+scenario+'_'+type+'.txt'
-
-
-    with open(annotation_file, 'w') as ann_file:
-        for _, item in data.iterrows():
-            video_id = item['id']
-            verb_nouns = item['verb+noun']
-            class_number = verb_noun_to_class[verb_nouns]
-            video_path = os.path.join(dataset_path, video_id)
-
-            # Write annotation file
-            ann_file.write(f'{video_path} {class_number}\n')
-
-
-    # Create a shared class file
-    with open(class_file, 'w') as cls_file:
-        class_names = unique_nouns
-        cls_file.write(str(class_names))
-
-if __name__ == "__main__":
-    # Replace 'csv1.csv' and 'csv2.csv' with your CSV file names
-    generate_annotation_and_class_files(['unkv_train_fix.csv', 'unkv_test_fix.csv'], ['ann_unkv_train.txt', 'ann_unkv_test.txt'], 'class_unkv.txt')
     
 
+    for idx, type_df in enumerate(dfs):
+        if idx == 0:
+            type = 'train'
+        elif idx == 1:
+            type = 'val'
+        else:
+            type = 'test'
+
+        annotation_file = 'ann_'+scenario+'_'+type+'.txt'
+        class_file = 'class_'+scenario+'_'+type+'.txt'
+
+        with open(annotation_file, 'w') as ann_file:
+            for _, item in type_df.iterrows():
+                video_id = item['id']
+                verb_nouns = item['verb+noun']
+                class_number = verb_noun_to_class[verb_nouns]
+                video_path = os.path.join(dataset_path, video_id)
+
+                # Write annotation file
+                ann_file.write(f'{video_path} {class_number}\n')
+
+
+        # Create a shared class file
+        with open(class_file, 'w') as cls_file:
+            class_names = unique_verbs_nouns
+            cls_file.write(str(class_names))
 
 if __name__ == "__main__":
     pool = read_jsons()
@@ -466,5 +493,5 @@ if __name__ == "__main__":
 
 
     # TODO
-    # Val has to be 20% of examples, but same classes
-    # generation of annotation has to use train and etst, to have all classes to idx
+    #  optimize functions: combine create_df_known_labels_full, create_df_known_labels_unkv, create_df_known_labels_knuv, create_df_known_labels_unuv
+
