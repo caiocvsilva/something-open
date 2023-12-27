@@ -25,7 +25,7 @@ def parse_log_file(log_file):
 #     plt.ylabel('Loss')
 #     plt.title('Loss over iterations')
 #     plt.legend()
-#     plt.savefig('loss_over_epochs_knuv.png')  # saves the plot to a file
+#     plt.savefig('loss_over_epochs_knuv.png')  # saves the plot to a file 
 
 def plot_loss(df):
     plt.figure(figsize=(10, 6))
@@ -41,4 +41,5 @@ def plot_loss(df):
 # log_file = '20231116_173410.log'  # replace with your log file path
 log_file = sys.argv[1]
 df = parse_log_file(log_file)
+print(df)
 plot_loss(df)
