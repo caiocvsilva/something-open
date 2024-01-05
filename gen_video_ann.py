@@ -2,11 +2,15 @@ import sys
 # Input and output file paths
 input_file = sys.argv[1]
 output_file = sys.argv[2]
+server = sys.argv[3]
 
 # Function to convert the directory path to the video path
 def convert_path(directory_path, class_number):
     video_id = directory_path.split("/")[-1]
-    video_path = f"/shared/datasets/something/20bn-something-something-v2/{video_id}.webm"
+    if server == "lab":
+        video_path = f"/shared/datasets/something/20bn-something-something-v2/{video_id}.webm"
+    elif server == "gaivi":
+        video_path = f"/data/sarkar-vision/something_something/20bn-something-something-v2/{video_id}.webm"
     return f"{video_path} {class_number}"
 
 # Open input and output files
