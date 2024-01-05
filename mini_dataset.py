@@ -1,9 +1,18 @@
 import ast
 import random
+import sys
 
-input_train_file = '/shared/something-open/frame_ann_unkv_train.txt'
-input_val_file = '/shared/something-open/frame_ann_unkv_val.txt'
-input_test_file = '/shared/something-open/frame_ann_unkv_test.txt'
+scenario = sys.argv[1]
+# if second sys..argv task is not giving, default is ''
+if len(sys.argv) > 2:
+    task = sys.argv[2] + '_'
+else:
+    task = ''
+
+
+input_train_file = '/shared/something-open/'+task+'ann_'+scenario+'_train.txt'
+input_val_file = '/shared/something-open/'+task+'ann_'+scenario+'_val.txt'
+input_test_file = '/shared/something-open/'+task+'ann_'+scenario+'_test.txt'
 input_classes_file = '/shared/something-open/class_unkv.txt'
 
 output_train_file = input_train_file.split('.')[0] + '_10_classes.txt'
@@ -11,20 +20,28 @@ output_val_file = input_val_file.split('.')[0] + '_10_classes.txt'
 output_test_file = input_test_file.split('.')[0] + '_10_classes.txt'
 output_classes_file = input_classes_file.split('.')[0] + '_10_classes.txt'
 
+
+
 # Read train.txt, val.txt, and test.txt
 with open(input_train_file, 'r') as train_file, open(input_val_file, 'r') as val_file, open(input_test_file, 'r') as test_file:
     train_lines = train_file.readlines()
     val_lines = val_file.readlines()
     test_lines = test_file.readlines()
 
+# check if frist line of train_lines has 2 or 3 elements
+if len(train_lines[0].split()) == 2:
+    element_split = 1
+elif len(train_lines[0].split()) == 3:
+    element_split = 2 
+
 #get class ids from train.txt, removing duplicates
-class_ids = list(set([int(line.split()[2]) for line in train_lines]))
+class_ids = list(set([int(line.split()[element_split]) for line in train_lines]))
 
 # Randomly choose 10 class IDs
 random_class_ids = random.sample(class_ids, 10)
 
 # get class ids from test.txt, removing duplicates
-class_ids_test = list(set([int(line.split()[2]) for line in test_lines]))
+class_ids_test = list(set([int(line.split()[element_split]) for line in test_lines]))
 
 # randomly choose 5 class IDs not in the 10 chosen class IDs
 random_class_ids_tests = random.sample([class_id for class_id in class_ids_test if class_id not in random_class_ids], 5)
@@ -32,10 +49,10 @@ random_class_ids_tests = random.sample([class_id for class_id in class_ids_test 
 
 
 # Filter train.txt, val.txt, and test.txt based on the chosen class IDs
-train_lines = [line for line in train_lines if int(line.split()[2]) in random_class_ids]
-val_lines = [line for line in val_lines if int(line.split()[2]) in random_class_ids]
+train_lines = [line for line in train_lines if int(line.split()[element_split]) in random_class_ids]
+val_lines = [line for line in val_lines if int(line.split()[element_split]) in random_class_ids]
 # remove all lines not in random_class_ids and random_class_ids_tests
-test_lines = [line for line in test_lines if int(line.split()[2]) in random_class_ids or int(line.split()[2]) in random_class_ids_tests]
+test_lines = [line for line in test_lines if int(line.split()[element_split]) in random_class_ids or int(line.split()[element_split]) in random_class_ids_tests]
 
 
 # Read classes.txt
@@ -54,10 +71,14 @@ classes = [class_name for class_id, class_name in enumerate(classes) if class_id
 class_id_mapping = {old_id: new_id for new_id, old_id in enumerate(random_class_ids, start=0)}
 class_id_mapping_test = {old_id: new_id for new_id, old_id in enumerate(random_class_ids_tests, start=len(random_class_ids))}
 
-
-train_lines = [f"{line.split()[0]} {line.split()[1]} {class_id_mapping[int(line.split()[2])]} \n" for line in train_lines]
-val_lines = [f"{line.split()[0]} {line.split()[1]} {class_id_mapping[int(line.split()[2])]} \n" for line in val_lines]
-test_lines = [f"{line.split()[0]} {line.split()[1]} {class_id_mapping[int(line.split()[2])]} \n" if int(line.split()[2]) in class_id_mapping else f"{line.split()[0]} {line.split()[1]} {class_id_mapping_test[int(line.split()[2])]} \n" for line in test_lines]
+if element_split == 1:
+    train_lines = [f"{line.split()[0]} {class_id_mapping[int(line.split()[1])]} \n" for line in train_lines]
+    val_lines = [f"{line.split()[0]} {class_id_mapping[int(line.split()[1])]} \n" for line in val_lines]
+    test_lines = [f"{line.split()[0]} {class_id_mapping[int(line.split()[1])]} \n" if int(line.split()[1]) in class_id_mapping else f"{line.split()[0]} {class_id_mapping_test[int(line.split()[1])]} \n" for line in test_lines]
+elif element_split == 2:
+    train_lines = [f"{line.split()[0]} {line.split()[1]} {class_id_mapping[int(line.split()[2])]} \n" for line in train_lines]
+    val_lines = [f"{line.split()[0]} {line.split()[1]} {class_id_mapping[int(line.split()[2])]} \n" for line in val_lines]
+    test_lines = [f"{line.split()[0]} {line.split()[1]} {class_id_mapping[int(line.split()[2])]} \n" if int(line.split()[2]) in class_id_mapping else f"{line.split()[0]} {line.split()[1]} {class_id_mapping_test[int(line.split()[2])]} \n" for line in test_lines]
 
 # Write the updated train.txt, val.txt, and test.txt
 with open(output_train_file, 'w') as train_file, open(output_val_file, 'w') as val_file, open(output_test_file, 'w') as test_file:

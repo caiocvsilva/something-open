@@ -1,1 +1,1 @@
-{'taking book', 'lifting card', 'moving comb', 'pushing brush', 'putting phone', 'pretending bag', 'throwing color', 'squeezing plastic', 'dropping coin', 'pretending drawer', 'throwing key', 'holding bottle', 'pushing plastic', 'putting stapler', 'putting tape'}
+{'plugging plug', 'dropping coin', 'moving scissors', 'pretending key', 'wiping water', 'something toy', 'lifting plastic', 'moving plastic', 'poking bottle', 'plugging phone', 'holding glass', 'lifting bottle', 'putting clip', 'folding paper', 'turning plastic'}
