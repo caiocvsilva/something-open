@@ -17,5 +17,9 @@ with open(input_file, "r") as infile, open(output_file, "w") as outfile:
             directory_path, num_files, class_number = parts
             converted_line = convert_path(directory_path, class_number)
             outfile.write(f"{converted_line}\n")
+        elif len(parts) == 2:
+            directory_path, class_number = parts
+            converted_line = convert_path(directory_path, class_number)
+            outfile.write(f"{converted_line}\n")
 
 print("Conversion completed.")
