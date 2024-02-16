@@ -28,7 +28,7 @@ with open(log_file_path, "r") as file:
             if iteration > 0:
                 top1_all_train /= iteration
                 top5_all_train /= iteration
-                print(f"Iteration {epoch}: top1_acc_train = {top1_all_train}, top5_acc_train = {top5_all_train}")
+                print(f"Epoch {epoch}: top1_acc_train = {top1_all_train}, top5_acc_train = {top5_all_train}")
                 arr_top1.append(top1_acc_train)
                 arr_top5.append(top5_acc_train)
 
