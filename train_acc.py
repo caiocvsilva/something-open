@@ -1,5 +1,6 @@
 import sys
 import pickle
+import re
 
 log_file_path = sys.argv[1]
 top1_all_train = 0.0
@@ -21,33 +22,26 @@ with open(log_file_path, "r") as file:
                     top1_all_train /= iteration
                     top5_all_train /= iteration
                     print(f"Iteration {epoch}: top1_acc_train = {top1_all_train}, top5_acc_train = {top5_all_train}")
-                    arr_top1.append(top1_acc_train)
-                    arr_top5.append(top5_acc_train)
+                    arr_top1.append(top1_all_train)
+                    arr_top5.append(top5_all_train)
 
                     top1_all_train = 0.0
                     top5_all_train = 0.0
                     iteration = 0
                     epoch += 1
                 continue
-            if "top1_acc_train" in line:
-                top1_acc_train = float(line.split(":")[1].strip())
-                top1_all_train += top1_acc_train
-                iteration += 1
-            elif "top5_acc_train" in line:
-                if "top1_acc_train" in line:
-                    line1, line2 = line.split("top1_acc_train")
-                    top1_acc_train = float(line2.split(":")[1].strip())
+            entries = re.split('top1_acc_train:|top5_acc_train:', line)
+            for entry in entries[1:]:
+                if 'top1_acc_train' in entry:
+                    top1_acc_train = float(entry.strip())
                     top1_all_train += top1_acc_train
                     iteration += 1
-                else:
-                    line1 = line
-                top5_acc_train = float(line1.split(":")[1].strip())
-                top5_all_train += top5_acc_train
+                elif 'top5_acc_train' in entry:
+                    top5_acc_train = float(entry.strip())
+                    top5_all_train += top5_acc_train
 
 with open("arr_top1.pkl", "wb") as file:
     pickle.dump(arr_top1, file)
 
 with open("arr_top5.pkl", "wb") as file:
     pickle.dump(arr_top5, file)
-                
-                
