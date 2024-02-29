@@ -1,0 +1,1 @@
+{'putting water', 'plugging charger', 'touching handle', 'moving battery', 'poking color', 'showing plastic', 'dropping plastic', 'plugging phone', 'pretending coin', 'putting tape', 'putting phone', 'holding bottle', 'turning glass', 'pretending brush', 'moving color'}

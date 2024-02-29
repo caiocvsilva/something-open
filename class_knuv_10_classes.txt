@@ -1,0 +1,1 @@
+{'pretending door', 'lifting box', 'covering pencil', 'moving toy', 'moving plastic', 'pretending pencil', 'moving cup', 'holding mouse', 'dropping plastic', 'pushing coin', 'putting water', 'pushing book', 'pushing cup', 'putting plastic', 'turning water'}
